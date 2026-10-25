@@ -2,7 +2,9 @@
 
 **Early Alpha · `0.1.0a1`**
 
-TabInfra provides unified Runtime and Adapt interfaces for Tabular Foundation Models. **Runtime** handles prediction and table generation. **Adapt** supports native fine-tuning, checkpoint export, and Runtime reload.
+TabInfra is an infrastructure toolkit for Tabular Foundation Models.
+
+The current release includes **Runtime** for prediction and table generation, and **Adapt** for native fine-tuning, checkpoint export, and loading exported checkpoints in Runtime.
 
 | Capability | TabICL | TabPFN | SOMTab |
 | --- | --- | --- | --- |
