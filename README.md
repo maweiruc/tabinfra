@@ -1,8 +1,8 @@
 # TabInfra
 
-**Early Alpha · `0.1.0a1` · Git tag `v0.1.0-alpha.1`**
+**Early Alpha · `0.1.0a1`**
 
-TabInfra provides a small, unified Python interface for Tabular Foundation Models. **Runtime** handles classification, regression, and table generation. **Adapt** calls native training implementations and exports model artifacts that Runtime can load. This release is intended for local experiments and research; the API and artifact format may change.
+TabInfra provides unified Runtime and Adapt interfaces for Tabular Foundation Models. **Runtime** handles prediction and table generation. **Adapt** supports native fine-tuning, checkpoint export, and Runtime reload.
 
 | Capability | TabICL | TabPFN | SOMTab |
 | --- | --- | --- | --- |
@@ -10,11 +10,11 @@ TabInfra provides a small, unified Python interface for Tabular Foundation Model
 | `binned_ar` table generation | Supported | Supported | Reserved |
 | Native classification fine-tuning, module freezing, checkpoint export and reload | Supported | Not implemented | Reserved |
 
-SOMTab source and weights are not integrated. Selecting it explicitly raises `NotImplementedError`. In the examples, `--backend all` runs TabICL and TabPFN and reports SOMTab separately as `reserved`.
+SOMTab is a reserved interface; no source or weights are integrated. Selecting it raises `NotImplementedError`.
 
 ## Installation
 
-Create a separate Python 3.11+ environment from the project root:
+Requires Python 3.11+. From a clone of this repository:
 
 ```bash
 python3.12 -m venv .venv
@@ -22,26 +22,15 @@ source .venv/bin/activate
 python -m pip install -e ".[tabicl,tabpfn,adapt]"
 ```
 
-The base installation, `python -m pip install -e .`, provides the shared interfaces only. Install `.[tabicl]`, `.[tabpfn]`, or `.[adapt]` to select individual capabilities. Backends are imported on demand; `import tabinfra` does not import native models or download weights. This version is available as source on GitHub and has not been published to PyPI.
+Install `.[tabicl]`, `.[tabpfn]`, or `.[adapt]` for individual capabilities; `pip install -e .` installs only the shared interfaces. Native models load on demand. This version is available on GitHub, not PyPI.
 
-Backend dependencies are pinned to **TabICL 2.2.0 and TabPFN 9.2.0**. Validation used macOS 26.4 / arm64, Python 3.12.14, and PyTorch 2.14.1. All real-model checks ran on **CPU**; CUDA, MPS, other operating systems, and other Python versions have not been validated.
+Backends are pinned to **TabICL 2.2.0 and TabPFN 9.2.0**. Defaults use TabICL v2 checkpoints dated 2026-02-12 and TabPFN v2 checkpoints. The default TabPFN classifier supports up to 10 classes.
 
-TabICL defaults to `tabicl-classifier-v2-20260212.ckpt` and `tabicl-regressor-v2-20260212.ckpt`. TabPFN explicitly uses the **v2** checkpoints `tabpfn-v2-classifier-finetuned-zk73skhh.ckpt` and `tabpfn-v2-regressor.ckpt`, independently of changes to upstream defaults. The default TabPFN v2 classifier supports up to 10 classes. Capabilities and licenses of custom checkpoints must be checked separately.
-
-The first real-model run downloads weights through the native backend and may require network access or acceptance of model terms. Missing dependencies, weights, or supported devices produce explicit errors. TabInfra does not distribute model weights or call paid remote prediction APIs. To keep caches inside the project:
-
-```bash
-export HF_HOME="$PWD/.cache/huggingface"
-export TABPFN_MODEL_CACHE_DIR="$PWD/.cache/tabpfn"
-export SKB_DATA_DIRECTORY="$PWD/.cache/skrub"
-export MPLCONFIGDIR="$PWD/.cache/matplotlib"
-```
-
-Set `HF_HUB_OFFLINE=1` only after the weights are fully cached; leave offline mode disabled for the initial download.
+First use downloads weights through the native backend and may require accepting model terms. Capabilities and licenses of custom checkpoints must be checked separately.
 
 ## Classification and regression
 
-These examples are ready to run. Replace `"tabicl"` with `"tabpfn"` to use the other backend.
+Replace `"tabicl"` with `"tabpfn"` to use the other backend.
 
 ```python
 from sklearn.datasets import make_classification, make_regression
@@ -59,7 +48,7 @@ regressor = Predictor("tabicl", "regression", kwargs).fit(Xr[:72], yr[:72])
 values = regressor.predict(Xr[72:])
 ```
 
-Inputs can be two-dimensional NumPy arrays or pandas DataFrames, with a one-dimensional, single-target label array. Classification preserves the original labels. Call `fit` before prediction and keep the feature count, DataFrame column names, and column order consistent. Runtime `fit` establishes context and native preprocessing without updating model weights. The shared layer does not impose one-hot encoding, normalization, or missing-value imputation. Regression does not provide `predict_proba`.
+Use two-dimensional arrays or DataFrames and a one-dimensional target. Keep feature names and order consistent. Runtime `fit` establishes context without updating model weights; `predict_proba` is available for classification only.
 
 ## Table generation
 
@@ -80,15 +69,13 @@ generator = Generator(
 synthetic = generator.generate(n_samples=32, random_state=1)
 ```
 
-**`binned_ar` is a generation baseline based on conditional classification over bins, not a native continuous conditional density model.** It generates columns in a fixed order: the first column is sampled from its empirical distribution, subsequent categorical columns use conditional class probabilities, and numeric columns use quantile-bin probabilities. Floating-point values are sampled uniformly within a bin; integers are sampled from the observed training integers in that bin according to their empirical frequencies. Probability columns follow the backend's `classes_` mapping. The current target and future columns are excluded from the conditioning features.
+**`binned_ar` is a generation baseline using conditional classification over bins, not a native continuous conditional density model.** It samples the first column empirically, then generates subsequent columns from previously sampled values.
 
-**Category encoding can affect generated results.** Conditioning categories are assigned integer IDs in order of first appearance in the training table and passed to the backend as ordinary numeric features. The shared layer does not pass native categorical metadata. The artificial order and distances introduced by this mapping may change conditional probabilities. Using the same mapping during training and sampling does not guarantee invariance to permutations of category IDs.
+**Category encoding can affect results:** conditioning categories receive integer IDs in order of first appearance and are passed as numeric features. Invariance to category-ID permutations is not guaranteed. **No synthetic-data privacy guarantee is provided.**
 
-Input must be a DataFrame with at least 16 rows, unique string column names, and no missing or infinite values. Supported types include integers, floats, booleans, strings, and pandas categories. Integers are treated as numeric by default; specify integer categories with `categorical_features`. Use `column_order` to set a complete generation order. Constants, repeated quantile boundaries, a single effective bin, and constant conditioning prefixes have explicit fallback behavior. Output preserves supported dtypes and the original column order.
+Input requires a DataFrame with at least 16 rows, unique string column names, and no missing or infinite values. Supported types are integers, floats, booleans, strings, and pandas categories. Use `categorical_features` for integer categories and `column_order` to set generation order. Output preserves supported dtypes and the original column order.
 
-The constructor's `random_state` controls conditional models; `generate(random_state=...)` controls sampling. Seeds in the constructor and `model_kwargs` must agree. With an explicit `random_state=None`, each `fit` resolves one model seed and stores it in `model_random_state_`. Determinism of GPU operations depends on the native implementation.
-
-Conditional models are rebuilt for each column, with only one model retained at a time; `fit` keeps a copy of the training table. Generator persistence, arbitrary conditional generation, missing-value imputation, and precise tail modeling are not implemented. **There is no synthetic-data privacy guarantee.** Row-overlap measurements or deduplication do not replace a privacy assessment.
+The constructor's `random_state` controls model fitting; `generate(random_state=...)` controls sampling. Constructor and `model_kwargs` seeds must agree. Generator persistence, arbitrary conditional generation, and missing-value imputation are not supported.
 
 ## Native fine-tuning and reload
 
@@ -114,13 +101,13 @@ adapted = Predictor.from_artifact(artifact_dir, device="cpu").fit(X[:96], y[:96]
 labels = adapted.predict(X[112:])
 ```
 
-Adapt calls the official `FinetunedTabICLClassifier`. It currently supports TabICL classification only, with independent freezing of the column, row, and ICL modules. Training and inference parameters are separate; unknown or conflicting parameters raise errors. Validation data selects the checkpoint; test data must not participate in selection. This adapter rejects W&B configuration, including an empty dictionary.
+Adapt uses the native TabICL classifier trainer and supports independent freezing of column, row, and ICL modules. Checkpoints are selected using validation data, not test data. Use a new output directory for each run.
 
-Artifacts contain native checkpoints, `manifest.json`, and a training audit. The default selection remains **`best.ckpt`**, which may still contain the initial weights. Reports therefore distinguish `parameter_update_verified` from `selected_checkpoint_matches_base`. A separate checkpoint and manifest under `updated_checkpoint/` export the last epoch whose weights actually changed, verifying that the updated model can be deployed. This artifact does not replace the default best model or imply better validation performance.
+The default **`best.ckpt`** may retain the initial weights. A separate artifact under `updated_checkpoint/` exports the last epoch with verified weight changes; this does not imply better validation performance.
 
-Load the updated artifact with `Predictor.from_artifact(artifact_dir / "updated_checkpoint", device="cpu")`. Both artifact types store model weights and require a new context `fit` after loading; artifact directories can be moved as a whole. Loading validates relative paths and the file SHA256, disables automatic downloads, and forces the artifact checkpoint to prevent fallback to base weights. Load artifacts only from trusted sources: a hash detects inconsistent content but does not authenticate its origin.
+Load it with `Predictor.from_artifact(artifact_dir / "updated_checkpoint", device="cpu")`. Both artifact types require context `fit` after loading. Runtime validates checkpoint paths and hashes, loads the exported weights, and warns on backend-version mismatches. Only load artifacts from trusted sources.
 
-`ArtifactCompatibilityWarning` is emitted when backend versions differ or an older manifest does not record a version. Compatibility has been validated only with the pinned versions; use the dependencies recorded in an artifact to reproduce it. Small datasets may have only one training step per epoch, and native warmup starts with a zero learning rate, so the example uses two epochs. For a one-epoch update, explicitly set `use_lr_scheduler=False` and still verify that weights actually changed.
+The example uses two epochs because native warmup may leave weights unchanged after a single training step.
 
 ## Complete examples
 
@@ -133,15 +120,13 @@ python examples/generate.py --backend all --device cpu --output runs/generate
 python examples/finetune.py --device cpu --epochs 2 --output runs/finetune
 ```
 
-The examples use small, programmatically generated datasets and write `report.json` or per-backend JSON reports. Generation also writes CSV files; fine-tuning retains checkpoints and audit records. The fine-tuning example compares native and Runtime weight hashes, classes, labels, and probabilities (`rtol=1e-5, atol=1e-6`); it does not require validation metrics to improve. Use a new output directory when repeating fine-tuning.
-
-Scripts accept `--config local_config.json`; see the [configuration template](examples/config.example.json). Its structure is `backend → task → native constructor parameters`. An explicit `--device` overrides the configuration; omitting it preserves the configured or native default. Generation reads classification settings, and fine-tuning reads TabICL classification settings. When changing `--seed`, also update any explicitly configured `random_state`.
-
-`all` runs both backends sequentially, attempts the second even if the first fails, and returns a nonzero exit code on failure. SOMTab's reserved status does not count as a pass. A report marked `passed` means the real execution path completed, not that generation quality or production suitability has been established. Users can run the three examples above to check their own environment.
+Examples use generated datasets and save reports, synthetic CSVs, or checkpoints. `--backend all` runs TabICL and TabPFN, reports SOMTab as `reserved`, and exits nonzero on failure. Scripts accept `--config local_config.json`; see the [configuration template](examples/config.example.json). Keep `--seed` consistent with any configured `random_state`.
 
 ## Limitations and next steps
 
-This version has been validated only on small datasets on CPU. GPU support, compatibility across versions, large-table performance, and production stability have not been established. Generation depends on column order, binning, and category encoding. Fine-tuning is limited to TabICL classification; there is no general-purpose training framework. Next priorities are GPU validation and quality evaluation on independent data, followed by SOMTab, generator persistence, and additional native adaptation paths as needed. These capabilities are not part of this release.
+Validation used small datasets on **CPU**, macOS 26.4 / arm64, Python 3.12.14, and PyTorch 2.14.1. CUDA, MPS, other environments, large-table performance, and production stability are unverified. This Early Alpha is intended for experiments and research; APIs and artifact formats may change.
+
+Next priorities are GPU validation and independent quality evaluation, followed by additional backend and adaptation support.
 
 ## License and third-party models
 

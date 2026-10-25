@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tabinfra"
 version = "0.1.0a1"
-description = "Small unified Runtime and Adapt interfaces for tabular foundation models"
+description = "Unified Runtime and Adapt interfaces for tabular foundation models"
 requires-python = ">=3.11"
 dependencies = ["numpy>=1.26", "pandas>=2.1", "scikit-learn>=1.6"]
 readme = "README.md"
