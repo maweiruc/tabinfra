@@ -1,0 +1,18 @@
+# Publish only package metadata, source, examples, and the project license.
+/*
+!/.gitignore
+!/LICENSE
+!/README.md
+!/pyproject.toml
+!/src/
+/src/*
+!/src/tabinfra/
+/src/tabinfra/*
+!/src/tabinfra/*.py
+!/src/tabinfra/backends/
+/src/tabinfra/backends/*
+!/src/tabinfra/backends/*.py
+!/examples/
+/examples/*
+!/examples/*.py
+!/examples/config.example.json

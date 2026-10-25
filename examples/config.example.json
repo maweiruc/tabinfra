@@ -1,0 +1,11 @@
+{
+  "tabicl": {
+    "classification": {"n_estimators": 1, "random_state": 0, "device": "cpu"},
+    "regression": {"n_estimators": 1, "random_state": 0, "device": "cpu"}
+  },
+  "tabpfn": {
+    "classification": {"n_estimators": 1, "random_state": 0, "device": "cpu"},
+    "regression": {"n_estimators": 1, "random_state": 0, "device": "cpu"}
+  },
+  "somtab": {"classification": {}, "regression": {}}
+}

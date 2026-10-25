@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tabinfra"
+version = "0.1.0a1"
+description = "Small unified Runtime and Adapt interfaces for tabular foundation models"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26", "pandas>=2.1", "scikit-learn>=1.6"]
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.optional-dependencies]
+tabicl = ["tabicl==2.2.0"]
+tabpfn = ["tabpfn==9.2.0"]
+adapt = ["tabicl[finetune]==2.2.0"]
+dev = ["pytest>=8", "build>=1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["model_integration: runs real native models and requires their weights/dependencies"]
