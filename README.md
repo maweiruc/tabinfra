@@ -4,7 +4,7 @@
 
 TabInfra is an infrastructure toolkit for Tabular Foundation Models.
 
-The current release includes **Runtime** for prediction and table generation, and **Adapt** for native fine-tuning, checkpoint export, and loading exported checkpoints in Runtime.
+The current release includes **Runtime** for prediction (classification and regression) and table generation, and **Adapt** for native fine-tuning, checkpoint export, and loading exported checkpoints in Runtime.
 
 | Capability | TabICL | TabPFN | SOMTab |
 | --- | --- | --- | --- |
